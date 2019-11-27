@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:sns="http://www.mulesoft.org/schema/mule/sns" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:s3="http://www.mulesoft.org/schema/mule/s3"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/sns http://www.mulesoft.org/schema/mule/sns/current/mule-sns.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="773bb73a-306d-4e47-87c5-3515c5037c60" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration" doc:id="fd9f556f-f817-4407-94cc-4334da9468e2" >
+		<s3:basic-connection accessKey="12233445" secretKey="kweqmwklf" region="AP_SOUTH_1" />
+	</s3:config>
+	<sns:config name="Amazon_SNS_configuration" doc:name="Amazon SNS configuration" doc:id="07605cfb-f7cd-4c16-988f-4ee23de55d74" >
+		<sns:basic-connection accessKey="AKIAJWKZDPLHRO4WPP7A" secretKey="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" region="AP_SOUTH_1" />
+	</sns:config>
+	<flow name="researchFlow" doc:id="66d67154-5fac-4ec7-937f-8628712aed16" initialState="stopped">
+		<http:listener doc:name="Listener" doc:id="ca03f2f6-9f6e-400b-8243-63a821f6b6f2" config-ref="HTTP_Listener_config" path="/s3bucket"/>
+		<s3:create-bucket doc:name="Create bucket" doc:id="9ae4f9e7-76af-4340-a30c-d67a9f8d55ea" config-ref="Amazon_S3_Configuration" region="AP_MUMBAI" bucketName="ruchakhisti"/>
+		<set-payload value="#[output application/json
+---
+payload]" doc:name="Set Payload" doc:id="3c890f78-eaf7-456c-9ded-8bea2f78e531" />
+	</flow>
+	<flow name="researchFlow1" doc:id="9abf4b20-3a17-4dff-a37c-98cbcad9ee96" initialState="stopped">
+		<http:listener doc:name="Listener" doc:id="644a893e-e246-4314-83c9-d4138f17b485" config-ref="HTTP_Listener_config" path="/object" allowedMethods="POST"/>
+		<s3:create-object doc:name="Create object" doc:id="8461152c-0310-49dc-bce8-189564d3fa5b" config-ref="Amazon_S3_Configuration" bucketName="ruchakhisti" key="#[('ruchakhisti_' as String) ++  (now() as String {format: &quot;yyyy-MM-dd-HH-mm&quot;}) ++ ('.txt' as String)]"/>
+		<set-payload value="#[%dw 2.0
+output application/json
+---
+payload]" doc:name="Set Payload" doc:id="06b7028b-624d-45eb-8ee0-749c956c4b40" />
+	</flow>
+	<flow name="researchFlow2" doc:id="9f3bbf14-6b54-487c-b31c-98693d2f8841" initialState="started">
+		<s3:new-object-trigger doc:name="On New Object" doc:id="35d36d30-62fc-4980-9bd4-e3773a3e6dee" config-ref="Amazon_S3_Configuration" bucketName="ruchakhisti">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</s3:new-object-trigger>
+		<set-variable value="#[attributes.key]" doc:name="key" doc:id="2007a4b3-7a01-48c2-9f70-274d4a567c7f" variableName="key"/>
+		<set-payload value="#[%dw 2.0
+output application/json
+---
+payload]" doc:name="Set Payload" doc:id="b24f39f2-e7ae-45de-8f01-487b80da5c75" />
+		<logger level="INFO" doc:name="Logger" doc:id="47b95e38-5530-4288-9789-d8e6751f1846" message="#[payload]"/>
+	</flow>
+	<flow name="researchFlow3" doc:id="a32ab638-6ecf-41a0-938d-0f00f87416eb" initialState="stopped">
+		<http:listener doc:name="Listener" doc:id="51746ae0-a2ae-4e10-905b-cf21ed111dbf" config-ref="HTTP_Listener_config" path="/topic"/>
+		<sns:create-topic doc:name="Create topic" doc:id="06de6741-ab98-40fe-9698-e9b37a4069ef" config-ref="Amazon_SNS_configuration" topicName="ruchakhisti"/>
+		<set-payload value="#[%dw 2.0
+output application/json
+---
+payload]" doc:name="Set Payload" doc:id="19b9491b-f2b7-4f7f-9a42-362325833fcb" />
+	</flow>
+</mule>
